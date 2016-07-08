@@ -21,31 +21,32 @@ public extension UIScrollView {
             objc_setAssociatedObject(self, &associatedObjectHandle, newValue, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         }
     }
-    
+
     public func addPullToRefresh(pullToRefresh: PullToRefresh, action:()->()) {
         if self.pullToRefresh != nil {
             self.removePullToRefresh(self.pullToRefresh!)
         }
-        
+
         self.pullToRefresh = pullToRefresh
         pullToRefresh.scrollView = self
         pullToRefresh.action = action
-        
+
         let view = pullToRefresh.refreshView
         view.frame = CGRectMake(0, -view.frame.size.height, self.frame.size.width, view.frame.size.height)
         self.addSubview(view)
         self.sendSubviewToBack(view)
     }
-    
-    func removePullToRefresh(pullToRefresh: PullToRefresh) {
-        self.pullToRefresh?.refreshView.removeFromSuperview()
-        self.pullToRefresh = nil
+
+    func removePullToRefresh() {
+        pullToRefresh?.refreshView.removeFromSuperview()
+        pullToRefresh.scrollView = nil
+        pullToRefresh = nil
     }
-    
+
     func startRefreshing() {
         pullToRefresh?.startRefreshing()
     }
-    
+
     func endRefreshing() {
         pullToRefresh?.endRefreshing()
     }
