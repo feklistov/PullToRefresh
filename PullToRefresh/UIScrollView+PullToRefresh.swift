@@ -39,7 +39,7 @@ public extension UIScrollView {
 
     func removePullToRefresh() {
         pullToRefresh?.refreshView.removeFromSuperview()
-        pullToRefresh?.scrollView = nil
+        pullToRefresh?.scrollView = nil // release
         pullToRefresh = nil
     }
 
