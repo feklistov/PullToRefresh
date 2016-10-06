@@ -11,25 +11,25 @@ import Foundation
 
 private var PullToRefreshKVOContext = 0
 public protocol RefreshViewAnimator {
-     func animateState(state: State)
+     func animateState(_ state: State)
 }
 
 // MARK: PullToRefresh
 
-public class PullToRefresh: NSObject {
-    private var handleContentOffsetChange: Bool = true
-    private var observing: Bool = false
+open class PullToRefresh: NSObject {
+    fileprivate var handleContentOffsetChange: Bool = true
+    fileprivate var observing: Bool = false
   
-    public var hideDelay: NSTimeInterval = 0
+    open var hideDelay: TimeInterval = 0
 
     let refreshView: UIView
     var action: (() -> ())?
 
-    private let animator: RefreshViewAnimator
+    fileprivate let animator: RefreshViewAnimator
 
     // MARK: - ScrollView & Observing
 
-    private var scrollViewDefaultInsets = UIEdgeInsetsZero
+    fileprivate var scrollViewDefaultInsets = UIEdgeInsets.zero
     weak var scrollView: UIScrollView? {
         willSet {
             removeScrollViewObserving()
@@ -42,14 +42,14 @@ public class PullToRefresh: NSObject {
         }
     }
 
-    private func addScrollViewObserving() {
-      if let scrollView = scrollView where !observing {
+    fileprivate func addScrollViewObserving() {
+      if let scrollView = scrollView , !observing {
         observing = true
-        scrollView.addObserver(self, forKeyPath: contentOffsetKeyPath, options: .Initial, context: &PullToRefreshKVOContext)
+        scrollView.addObserver(self, forKeyPath: contentOffsetKeyPath, options: .initial, context: &PullToRefreshKVOContext)
       }
     }
 
-    private func removeScrollViewObserving() {
+    fileprivate func removeScrollViewObserving() {
       if observing {
         scrollView?.removeObserver(self, forKeyPath: contentOffsetKeyPath, context: &PullToRefreshKVOContext)
         observing = false
@@ -58,33 +58,33 @@ public class PullToRefresh: NSObject {
 
     // MARK: - State
 
-    var state: State = .Inital {
+    var state: State = .inital {
         didSet {
             animator.animateState(state)
             switch state {
-            case .Loading:
-                if let scrollView = scrollView where (oldValue != .Loading) {
+            case .loading:
+                if let scrollView = scrollView , (oldValue != .loading) {
                     scrollView.contentOffset = previousScrollViewOffset
                     scrollView.bounces = false
-                    UIView.animateWithDuration(0.3, animations: {
+                    UIView.animate(withDuration: 0.3, animations: {
                         let insets = self.refreshView.frame.height + self.scrollViewDefaultInsets.top
                         scrollView.contentInset.top = insets
 
-                        scrollView.contentOffset = CGPointMake(scrollView.contentOffset.x, -insets)
+                        scrollView.contentOffset = CGPoint(x: scrollView.contentOffset.x, y: -insets)
                         }, completion: { finished in
                             scrollView.bounces = true
                     })
 
                     action?()
                 }
-            case .Finished:
+            case .finished:
                 handleContentOffsetChange = false
-                UIView.animateWithDuration(1, delay: hideDelay, usingSpringWithDamping: 0.4, initialSpringVelocity: 0.8, options: UIViewAnimationOptions.CurveLinear, animations: {
+                UIView.animate(withDuration: 1, delay: hideDelay, usingSpringWithDamping: 0.4, initialSpringVelocity: 0.8, options: UIViewAnimationOptions.curveLinear, animations: {
                     self.scrollView?.contentInset = self.scrollViewDefaultInsets
                     self.scrollView?.contentOffset.y = -self.scrollViewDefaultInsets.top
                 }, completion: { finished in
                     self.handleContentOffsetChange = true
-                    self.state = .Inital
+                    self.state = .inital
                 })
             default: break
             }
@@ -108,10 +108,10 @@ public class PullToRefresh: NSObject {
     }
 
     // MARK: KVO
-    private let contentOffsetKeyPath = "contentOffset"
-    private var previousScrollViewOffset: CGPoint = CGPointZero
+    fileprivate let contentOffsetKeyPath = "contentOffset"
+    fileprivate var previousScrollViewOffset: CGPoint = CGPoint.zero
 
-    override public func observeValueForKeyPath(keyPath: String?, ofObject object: AnyObject?, change: [String : AnyObject]?, context: UnsafeMutablePointer<()>) {
+    override open func observeValue(forKeyPath keyPath: String?, of object: Any?, change: [NSKeyValueChangeKey : Any]?, context: UnsafeMutableRawPointer?) {
         defer {
           previousScrollViewOffset.y = scrollView!.contentOffset.y
         }
@@ -122,41 +122,40 @@ public class PullToRefresh: NSObject {
             let refreshViewHeight = refreshView.frame.size.height
 
             switch offset {
-            case 0 where (state != .Loading): state = .Inital
-            case -refreshViewHeight...0 where (state != .Loading && state != .Finished):
-                state = .Releasing(progress: -offset / refreshViewHeight)
+            case 0 where (state != .loading): state = .inital
+            case -refreshViewHeight...0 where (state != .loading && state != .finished):
+                state = .releasing(progress: -offset / refreshViewHeight)
             case -1000...(-refreshViewHeight):
-                if state == State.Releasing(progress: 1) && scrollView?.dragging == false {
-                    state = .Loading
-                } else if state != State.Loading && state != State.Finished {
-                    state = .Releasing(progress: 1)
+                if state == State.releasing(progress: 1) && scrollView?.isDragging == false {
+                    state = .loading
+                } else if state != State.loading && state != State.finished {
+                    state = .releasing(progress: 1)
                 }
             default: break
             }
         } else {
-            super.observeValueForKeyPath(keyPath, ofObject: object, change: change, context: context)
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
         }
     }
 
     // MARK: - Start/End Refreshing
 
     func startRefreshing() {
-        if self.state != State.Inital {
+        if self.state != State.inital {
             return
         }
 
-        scrollView?.setContentOffset(CGPointMake(0, -refreshView.frame.height - scrollViewDefaultInsets.top), animated: true)
-        let delayTime = dispatch_time(DISPATCH_TIME_NOW,
-            Int64(0.27 * Double(NSEC_PER_SEC)))
+        scrollView?.setContentOffset(CGPoint(x: 0, y: -refreshView.frame.height - scrollViewDefaultInsets.top), animated: true)
+        let delayTime = DispatchTime.now() + Double(Int64(0.27 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC)
 
-        dispatch_after(delayTime, dispatch_get_main_queue(), {
-                self.state = State.Loading
+        DispatchQueue.main.asyncAfter(deadline: delayTime, execute: {
+                self.state = State.loading
             })
     }
 
     func endRefreshing() {
-        if state == .Loading {
-            state = .Finished
+        if state == .loading {
+            state = .finished
         }
     }
 }
@@ -164,25 +163,25 @@ public class PullToRefresh: NSObject {
 // MARK: - State enumeration
 
 public enum State:Equatable, CustomStringConvertible {
-    case Inital, Loading, Finished
-    case Releasing(progress: CGFloat)
+    case inital, loading, finished
+    case releasing(progress: CGFloat)
 
     public var description: String {
         switch self {
-        case .Inital: return "Inital"
-        case .Releasing(let progress): return "Releasing:\(progress)"
-        case .Loading: return "Loading"
-        case .Finished: return "Finished"
+        case .inital: return "Inital"
+        case .releasing(let progress): return "Releasing:\(progress)"
+        case .loading: return "Loading"
+        case .finished: return "Finished"
         }
     }
 }
 
 public func ==(a: State, b: State) -> Bool {
     switch (a, b) {
-    case (.Inital, .Inital): return true
-    case (.Loading, .Loading): return true
-    case (.Finished, .Finished): return true
-    case (.Releasing, .Releasing): return true
+    case (.inital, .inital): return true
+    case (.loading, .loading): return true
+    case (.finished, .finished): return true
+    case (.releasing, .releasing): return true
     default: return false
     }
 }
@@ -190,7 +189,7 @@ public func ==(a: State, b: State) -> Bool {
 // MARK: Default PullToRefresh
 
 class DefaultRefreshView: UIView {
-    private(set) var activicyIndicator: UIActivityIndicatorView!
+    fileprivate(set) var activicyIndicator: UIActivityIndicatorView!
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -202,13 +201,13 @@ class DefaultRefreshView: UIView {
         commonInit()
     }
 
-    private func commonInit() {
-        frame = CGRectMake(frame.origin.x, frame.origin.y, frame.width, 40)
+    fileprivate func commonInit() {
+        frame = CGRect(x: frame.origin.x, y: frame.origin.y, width: frame.width, height: 40)
     }
 
     override func layoutSubviews() {
         if (activicyIndicator == nil) {
-            activicyIndicator = UIActivityIndicatorView(activityIndicatorStyle: UIActivityIndicatorViewStyle.Gray)
+            activicyIndicator = UIActivityIndicatorView(activityIndicatorStyle: UIActivityIndicatorViewStyle.gray)
             activicyIndicator.hidesWhenStopped = true
             addSubview(activicyIndicator)
         }
@@ -217,42 +216,42 @@ class DefaultRefreshView: UIView {
         super.layoutSubviews()
     }
 
-    override func willMoveToSuperview(newSuperview: UIView?) {
-        super.willMoveToSuperview(newSuperview)
+    override func willMove(toSuperview newSuperview: UIView?) {
+        super.willMove(toSuperview: newSuperview)
         setupFrameInSuperview(superview)
     }
 
-    private func setupFrameInSuperview(newSuperview: UIView?) {
+    fileprivate func setupFrameInSuperview(_ newSuperview: UIView?) {
         if let superview = newSuperview {
-            frame = CGRectMake(frame.origin.x, frame.origin.y, superview.frame.width, 40)
+            frame = CGRect(x: frame.origin.x, y: frame.origin.y, width: superview.frame.width, height: 40)
         }
     }
 
-    private func centerActivityIndicator() {
+    fileprivate func centerActivityIndicator() {
         if (activicyIndicator != nil) {
-            activicyIndicator.center = convertPoint(center, fromView: superview)
+            activicyIndicator.center = convert(center, from: superview)
         }
     }
 }
 
 class DefaultViewAnimator: RefreshViewAnimator {
-    private let refreshView: DefaultRefreshView
+    fileprivate let refreshView: DefaultRefreshView
 
     init(refreshView: DefaultRefreshView) {
         self.refreshView = refreshView
     }
 
-    func animateState(state: State) {
+    func animateState(_ state: State) {
         switch state {
-        case .Inital: refreshView.activicyIndicator?.stopAnimating()
-        case .Releasing(let progress):
-            refreshView.activicyIndicator?.hidden = false
+        case .inital: refreshView.activicyIndicator?.stopAnimating()
+        case .releasing(let progress):
+            refreshView.activicyIndicator?.isHidden = false
 
-            var transform = CGAffineTransformIdentity
-            transform = CGAffineTransformScale(transform, progress, progress);
-            transform = CGAffineTransformRotate(transform, 3.14 * progress * 2);
+            var transform = CGAffineTransform.identity
+            transform = transform.scaledBy(x: progress, y: progress);
+            transform = transform.rotated(by: 3.14 * progress * 2);
             refreshView.activicyIndicator?.transform = transform
-        case .Loading: refreshView.activicyIndicator?.startAnimating()
+        case .loading: refreshView.activicyIndicator?.startAnimating()
         default: break
         }
     }
